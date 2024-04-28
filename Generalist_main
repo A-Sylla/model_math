@@ -1,0 +1,434 @@
+%%%  Generalist predators model  %%%%%
+
+clf
+
+global dt alpha1 alpha2 beta mu e1 e2 b c1 c2 c3 d1 d2 theta eta zeta sN lambda1 lambda2 nu1 nu2 gamma rho s1 s2 Lambda delta kappa sigma1 sigma2 
+
+% Model parameters
+T = 360;           % period of 360 days
+dt = 1;        % time interval of 6 hours (1/4 of a day)
+n = 9;             % number of habitat patches
+r = zeros(n,T/dt);     % initialize preys growth rate without disturbance
+for tt = 1:T/dt
+    r(:,tt) = [0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38]; 
+end
+r15 = zeros(n,T/dt);   r15h = zeros(n,T/dt);     % preys growth rate of with a 15-day disturbance
+r60 = zeros(n,T/dt);   r60h = zeros(n,T/dt);     % preys growth rate of with a 60-day disturbance 
+t6 = 69; %randi([1,T]);        % generate a random integer number between 1 and T = disturbance time
+for tt = 1:T/dt
+    if (mod(tt,360)> t6/dt) && (mod(tt,360) <= (t6+15)/dt)
+        r15(:,tt) = [0,0,0,0,0,0,0,0,0];                                  %r is reduced by 100% 
+        r15h(:,tt) = 0.5*[0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38];   %r is reduced by 50% 
+    else
+        r15(:,tt) = [0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38];
+        r15h(:,tt) = [0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38];
+    end
+end 
+for tt = 1:T/dt
+    if (mod(tt,360) > t6/dt) && (mod(tt,360) <= (t6+60)/dt)
+        r60(:,tt) = [0,0,0,0,0,0,0,0,0];                                  %r is reduced by 100% 
+        r60h(:,tt) = 0.5*[0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38];   %r is reduced by 50% 
+    else
+        r60(:,tt) = [0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38];
+        r60h(:,tt) = [0.15,0.17,0.2,0.23,0.25,0.28,0.31,0.35,0.38];
+    end
+end
+K = ones(n,1);     % [1,0.9,0.8,0.7,0.7,1,0.5,0.3,0.3];         % carrying capacity
+alpha1=0.4;       % predation rate of micro predator to prey
+alpha2=0.25;       % predation rate of macro predator to prey
+beta=0.25;        % predation rates of macro predator to micro
+e1=0.1; e2=0.1; b=1;      % beddington
+c1=0.7;        % conversion rate of micro predator from prey
+c2=0.7;        % conversion rate of macro predator from prey
+c3=0.7;        % conversion rate of macro predator from micro predator 
+mu=0.05;       % moratlity rate of prey
+d1=0.05;       % moratlity rate of micro predator
+d2=0.05;       % moratlity rate of macro predator 
+theta=0.05;    % bacilli maximal growth rate on prey
+lambda1=0.02;  % bacilli maximal growth rate on micro predator
+lambda2=0;     % bacilli maximal growth rate on macro predator
+eta=0.03;      % bacilli death rate on prey
+nu1=0.2;      % bacilli death rate on micro-predator
+nu2=0.3;      % bacilli death rate on macro-predator
+zeta=0.40;     % bacilli attachment rate on prey
+gamma=0.13;    % bacilli attachment rate on micro predator
+rho=0.06;   % bacilli attachment rate on macro predator
+sN=1;          % half-saturation constant of prey substrate
+s1=1;          % half-saturation constant of micro predator substrate
+s2=1;          % half-saturation constant of macro predator substrate
+
+Lambda = zeros(n,T/dt);     % initialize growth rate of free-living bacilli   
+for t = 1:T/dt
+    if (1 <= mod(t,360)) && (mod(t,360) <= 200)
+        Lambda(t) = 4*wblpdf(mod(t,360),100,4) ;  
+    else
+        Lambda(t) = 0;
+    end
+end 
+delta=0.03;    % death rate of free living bacilli
+kappa=3;       % Bacilli release rate from dead prey
+sigma1=2;      % Bacilli release rate from dead micro predator
+sigma2=0;      % Bacilli release rate from dead macro predator
+
+Q=zeros(n,T/dt); W=zeros(n,T/dt);         % no environmental perturbations % for micro and macro
+
+%% Initial conditions value
+No = [0.05,0.03,0.02,0,0,0,0.002];         % rand(n,1)
+
+
+%% define and plot species dispersal rates
+ 
+u=0.7;    % maximal dispersal rate of macro-predators
+v=0;    % maximal dispersal rate of micro-predators
+wo=0;   % preys dispersal rate
+
+% Calculate the solution of the model without disturbance  
+[N1,R1,P1,BN1,BR1,BP1,Bo1] = Generalist_model(No,n,r,K,T,u,v,wo,W,Q);  
+
+% Calculate the mean free-living bacteria without disturbance 
+Mean_Bo1 = sum(Bo1,1)/n; 
+
+m=zeros(n,T/dt);  z=zeros(n,T/dt); 
+for i=1:n 
+    for tt = 1:(T/dt)
+	    m(i,tt)= u/(1+R1(i,tt)+N1(i,tt));     % macro
+        z(i,tt)= v/(1+N1(i,tt));          % micro
+    end
+end
+
+% Time simulations
+tt = 0:dt:T-dt; 
+
+% % plot predator dispersal rates 
+% figure(1)      
+% subplot(2,2,1)   % macro-predator  
+% plot(tt,m); grid on;
+% xlabel('Time (days)'); ylabel('dispersal rates'); xlim([0 T]);
+% title('macro-predator')
+% 
+% subplot(2,2,2)    % micro-predtaor
+% plot(tt,z); grid on;
+% xlabel('Time (days)'); ylabel('dispersal rates'); xlim([0 T]);
+% title('micro-predator')
+
+
+%% Experiment 1: local ecological disturbance (i.e., affecting a single patch) 
+
+t1=50; %randi([1,T]);        % generate a random integer number between 1 and T
+i1=4; %randi([1,n]);        % generate a random integer number between 1 and n
+L10=zeros(n,T/dt); L50=zeros(n,T/dt); L90=zeros(n,T/dt);       % initialize perturbated functions
+L10(i1,t1)=0.1;          % loss of 10% of predator at time t=t1 for the patch i1 
+L50(i1,t1)=0.5;          % loss of 50% of predator at time t=t1 for the patch i1 
+L90(i1,t1)=0.9;          % loss of 90% of predator at time t=t1 for the patch i1 
+
+% Calculate the solution with tree different local disturbances of macro predator  
+[N1m,R1m,P1m,BN1m,BR1m,BP1m,Bo1m] = Generalist_model(No,n,r,K,T,u,v,wo,W,L10);     % first scenario (-10%)
+[N2m,R2m,P2m,BN2m,BR2m,BP2m,Bo2m] = Generalist_model(No,n,r,K,T,u,v,wo,W,L50);     % second scenario (-50%)
+[N3m,R3m,P3m,BN3m,BR3m,BP3m,Bo3m] = Generalist_model(No,n,r,K,T,u,v,wo,W,L90);     % third scenario (-90%)
+% Calculate the solution with tree different local disturbances of predators  
+[N1mm,R1mm,P1mm,BN1mm,BR1mm,BP1mm,Bo1mm] = Generalist_model(No,n,r,K,T,u,v,wo,L10,L10);     % first scenario (-10%)
+[N2mm,R2mm,P2mm,BN2mm,BR2mm,BP2mm,Bo2mm] = Generalist_model(No,n,r,K,T,u,v,wo,L50,L50);     % second scenario (-50%)
+[N3mm,R3mm,P3mm,BN3mm,BR3mm,BP3mm,Bo3mm] = Generalist_model(No,n,r,K,T,u,v,wo,L90,L90);     % third scenario (-90%)
+
+% Plot solution with local disturbance
+figure(2)       
+subplot(2,2,2)   % only macro-predators perturbed
+plot(tt,Bo1(i1,:),'g',tt,Bo1m(i1,:),'b--',tt,Bo2m(i1,:),'m--',tt,Bo3m(i1,:),'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Free-living bacterial density'); 
+title({['Local disturbance of macro at time = ',num2str(t1),' for the patch ',num2str(i1)]})
+legend('without','-10%','-50%','-90');
+
+subplot(2,2,4)   % both predators perturbed 
+plot(tt,Bo1(i1,:),'g',tt,Bo1mm(i1,:),'b--',tt,Bo2mm(i1,:),'m--',tt,Bo3mm(i1,:),'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Free-living bacterial density'); 
+title({['Local disturbance of predators at time = ',num2str(t1),' for the patch ',num2str(i1)]})
+legend('without','-10%','-50%','-90');  
+
+
+%% Figure S1: regional ecological disturbance affecting predators
+
+% Synchronised event
+G10_syn=zeros(n,T/dt); G50_syn=zeros(n,T/dt); G90_syn=zeros(n,T/dt);   % initialize synchronised disturbances function
+t2=[50,180,346,123,211,81,271,92,183]; %randi([1,T],n,1);      % generate n random numbers between 1 and T
+for i=1:n 
+    G10_syn(i,min(t2))=0.1;     % loss of 10% of macro-predator at time t=to for the each patch 
+    G50_syn(i,min(t2))=0.5;     % loss of 50% of macro-predator at time t=to for the each patch 
+    G90_syn(i,min(t2))=0.9;     % loss of 90% of macro-predator at time t=to for the each patch 
+end 
+% Calculate the solution with three different synchronised disturbance 
+[N1s,R1s,P1s,BN1s,BR1s,BP1s,Bo1s] = Generalist_model(No,n,r,K,T,u,v,wo,G10_syn,G10_syn);     % first scenario (-10%)
+[N2s,R2s,P2s,BN2s,BR2s,BP2s,Bo2s] = Generalist_model(No,n,r,K,T,u,v,wo,G50_syn,G50_syn);     % second scenario (-50%)
+[N3s,R3s,P3s,BN3s,BR3s,BP3s,Bo3s] = Generalist_model(No,n,r,K,T,u,v,wo,G90_syn,G90_syn);     % third scenario (-90%)
+% Mean free-living bacteria with synchronised disturbance
+Mean_Bo1s = sum(Bo1s,1)/n;      % first scenario (-10%)
+Mean_Bo2s = sum(Bo2s,1)/n;      % second scenario (-50%)
+Mean_Bo3s = sum(Bo3s,1)/n;      % third scenario (-90%)
+
+% Asynchronised events
+G10_asyn=zeros(n,T/dt); G50_asyn=zeros(n,T/dt); G90_asyn=zeros(n,T/dt);    % initialize asynchronised disturbances function
+for i=1:n 
+    G10_asyn(i,t2(i))=0.1;     % loss of 10% of predator at time t=t2(i) for the patch i 
+    G50_asyn(i,t2(i))=0.5;     % loss of 50% of predator at time t=t2(i) for the patch i 
+    G90_asyn(i,t2(i))=0.9;     % loss of 90% of predator at time t=t2(i) for the patch i 
+end 
+% Calculate the solution with three different asynchronized disturbance
+[N1as,R1as,P1as,BN1as,BR1as,BP1as,Bo1as] = Generalist_model(No,n,r,K,T,u,v,wo,G10_asyn,G10_asyn);     % first scenario (-10%)
+[N2as,R2as,P2as,BN2as,BR2as,BP2as,Bo2as] = Generalist_model(No,n,r,K,T,u,v,wo,G50_asyn,G50_asyn);     % second scenario (-50%)
+[N3as,R3as,P3as,BN3as,BR3as,BP3as,Bo3as] = Generalist_model(No,n,r,K,T,u,v,wo,G90_asyn,G90_asyn);     % third scenario (-90%)
+% Mean free-living bacteria with asynchronised disturbance 
+Mean_Bo1as = sum(Bo1as,1)/n;      % first scenario (-10%)
+Mean_Bo2as = sum(Bo2as,1)/n;      % second scenario (50%)
+Mean_Bo3as = sum(Bo3as,1)/n;      % third scenario (-90%)
+
+% Uniform events
+U10_low=zeros(n,T/dt); U50_low=zeros(n,T/dt); U90_low=zeros(n,T/dt);    % initialize low uniform disturbances function
+U10_high=zeros(n,T/dt); U50_high=zeros(n,T/dt); U90_high=zeros(n,T/dt);    % initialize high uniform disturbances function
+t3=[50,55,60,65,70,75,80,85,90];          % high frequency between disturbances (5 days)
+t4=[50,70,90,110,130,150,170,190,210];    % low frequency between disturbances (20 days)
+for i=1:n 
+    U10_low(i,t4(i))=0.1;     % loss of 10% of predator at time t=t3(i) for the patch i 
+    U50_low(i,t4(i))=0.5;     % loss of 50% of predator at time t=t3(i) for the patch i 
+    U90_low(i,t4(i))=0.9;     % loss of 90% of predator at time t=t3(i) for the patch i
+    
+    U10_high(i,t3(i))=0.1;     % loss of 10% of predator at time t=t4(i) for the patch i 
+    U50_high(i,t3(i))=0.5;     % loss of 50% of predator at time t=t4(i) for the patch i 
+    U90_high(i,t3(i))=0.9;     % loss of 90% of predator at time t=t4(i) for the patch i    
+end
+% Calculate the solution with three different low uniform disturbance 
+[N1u,R1u,P1u,BN1u,BR1u,BP1u,Bo1u] = Generalist_model(No,n,r,K,T,u,v,wo,U10_low,U10_low);     % first scenario (-10%)
+[N2u,R2u,P2u,BN2u,BR2u,BP2u,Bo2u] = Generalist_model(No,n,r,K,T,u,v,wo,U50_low,U50_low);     % second scenario (-50%)
+[N3u,R3u,P3u,BN3u,BR3u,BP3u,Bo3u] = Generalist_model(No,n,r,K,T,u,v,wo,U90_low,U90_low);     % third scenario (-90%)
+% Mean free-living bacteria with low uniform global disturbance 
+Mean_Bo1u = sum(Bo1u,1)/n;      % first scenario (-10%)
+Mean_Bo2u = sum(Bo2u,1)/n;      % second scenario (50%)
+Mean_Bo3u = sum(Bo3u,1)/n;      % third scenario (-90%)
+% Calculate the solution with three different high uniform disturbance 
+[N1h,R1h,P1h,BN1h,BR1h,BP1h,Bo1h] = Generalist_model(No,n,r,K,T,u,v,wo,U10_high,U10_high);     % first scenario (-10%)
+[N2h,R2h,P2h,BN2h,BR2h,BP2h,Bo2h] = Generalist_model(No,n,r,K,T,u,v,wo,U50_high,U50_high);     % second scenario (-50%)
+[N3h,R3h,P3h,BN3h,BR3h,BP3h,Bo3h] = Generalist_model(No,n,r,K,T,u,v,wo,U90_high,U90_high);     % third scenario (-90%)
+% Mean free-living bacteria with high uniform disturbance 
+Mean_Bo1h = sum(Bo1h,1)/n;      % first scenario (-10%)
+Mean_Bo2h = sum(Bo2h,1)/n;      % second scenario (50%)
+Mean_Bo3h = sum(Bo3h,1)/n;      % third scenario (-90%)
+
+% Disturbance with heterogeneous severity among patches
+Dr = zeros(n,T/dt);         % initialize random disturbance function 
+Dc = zeros(n,T/dt);         % initialize decrease-gradient disturbance function 
+Dd = zeros(n,T/dt);         % initialize gradient disturbance function 
+i2 = [0.3371,0.1622,0.7943,0.3112,0.5285,0.1656,0.6020,0.2630,0.6541];   %rand(1,n);       % generate n random integers numbers between 0 and 1
+v2 = sort(i2);              % arrange the vector i2 in ascending order
+u2 = sort(i2,'descend');    % arrange the vector i2 in descending order 
+for i=1:n 
+     Dr(i,t1)=i2(i);        % loss of i2(i) of predator at time t=t1 for the patch i
+     Dc(i,t1)=v2(i);         % loss of v(i) of predator at time t=t1 for the patch i
+     Dd(i,t1)=u2(i);         % loss of u(i) of predator at time t=t1 for the patch i
+end       
+% Calculate the solution with heterogeneous severity disturbance
+[N1gr,R1gr,P1gr,BN1gr,BR1gr,BP1gr,Bo1gr] = Generalist_model(No,n,r,K,T,u,v,wo,Dr,Dr);  % random impact
+[N1gd,R1gd,P1gd,BN1gd,BR1gd,BP1gd,Bo1gd] = Generalist_model(No,n,r,K,T,u,v,wo,Dd,Dd);  % positively maximal impact
+[N1gc,R1gc,P1gc,BN1gc,BR1gc,BP1gc,Bo1gc] = Generalist_model(No,n,r,K,T,u,v,wo,Dc,Dc);  % negatively maximal impact
+% Mean free-living bacteria with heterogeneous severity disturbance 
+Mean_Bo1gr = sum(Bo1gr,1)/n;   
+Mean_Bo1gd = sum(Bo1gd,1)/n;
+Mean_Bo1gc = sum(Bo1gc,1)/n;
+
+% plot solution with synchronised, asynchronised, uniform disturbances
+figure(3)      
+subplot(2,2,1)  % synchronised
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo1s,'b--',tt,Mean_Bo2s,'m--',tt,Mean_Bo3s,'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean free-living bacterial'); 
+title({['Synchronised disturbance at time = ',num2str(min(t2))]})
+legend('without','-10%','-50%','-90');
+
+subplot(2,2,2)    % asynchronised
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo1as,'b--',tt,Mean_Bo2as,'m--',tt,Mean_Bo3as,'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean free-living bacterial'); 
+title({['Asynchronised disturbance at time = ',mat2str(t2)]})
+legend('without','-10%','-50%','-90');
+   
+subplot(2,2,3)  % high uniform
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo1h,'b--',tt,Mean_Bo2h,'m--',tt,Mean_Bo3h,'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean free-living bacterial');
+title({['High uniform disturbance at time = ',mat2str(t4)]})
+legend('without','-10%','-50%','-90');
+
+subplot(2,2,4)  % low uniform
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo1u,'b--',tt,Mean_Bo2u,'m--',tt,Mean_Bo3u,'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean free-living bacterial'); 
+title({['Low uniform disturbance at time = ',mat2str(t3)]})
+legend('without','-10%','-50%','-90');
+
+% Plot solution with heterogeneous severity disturbance 
+figure(4)      
+subplot(2,2,1)   % Mean free-living bacteria 
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo1gr,'y--',tt,Mean_Bo1gd,'c--',tt,Mean_Bo1gc,'b--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean Free-living bacterial density'); 
+title({['heterogeneous disturbance at time = ',num2str(t1),' for vector ',mat2str(i2)]})
+legend('without','random','maximal','minimal'); 
+
+subplot(2,2,3)   % free-living bacteria of community 1
+plot(tt,Bo1(1,:),'g',tt,Bo1gr(1,:),'y--',tt,Bo1gd(1,:),'c--',tt,Bo1gc(1,:),'b--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); ylabel('Free-living bacterial density');  
+title('patch 1')
+legend('without','random','maximal','minimal'); 
+
+subplot(2,2,4)   % free-living bacteria of community 9
+plot(tt,Bo1(9,:),'g',tt,Bo1gr(9,:),'y--',tt,Bo1gd(9,:),'c--',tt,Bo1gc(9,:),'b--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); ylabel('Free-living bacterial density');  
+title('patch 9')
+legend('without','random','maximal','minimal'); 
+
+
+%% Experiment 3: regional ecological disturbance also affecting preys 
+
+Dr = zeros(n,T/dt);         % initialize random disturbance function 
+i2 = [0.6663,0.5391,0.6981,0.6665,0.1781,0.1280,0.9991,0.1711,0.0326]; %rand(1,n);      % generate n random integers numbers between 0 and 1
+for i=1:n 
+     Dr(i,t1)=i2(i);         % loss of i2(i) of predators at time t=t1 for the patch i
+end  
+
+% Calculate the solution with large disturbance 
+% reduction of 100% reproducton
+[N15,R15,P15,BN15,BR15,BP15,Bo15] = Generalist_model(No,n,r15,K,T,u,v,wo,Dr,Dr);   % impact of 15 days 
+[N60,R60,P60,BN60,BR60,BP60,Bo60] = Generalist_model(No,n,r60,K,T,u,v,wo,Dr,Dr);   % impact of 60 days
+% reduction of 50% of reproducton
+[N15h,R15h,P15h,BN15h,BR15h,BP15h,Bo15h] = Generalist_model(No,n,r15h,K,T,u,v,wo,Dr,Dr);   % impact of 15 days 
+[N60h,R60h,P60h,BN60h,BR60h,BP60h,Bo60h] = Generalist_model(No,n,r60h,K,T,u,v,wo,Dr,Dr);   % impact of 60 days
+% Mean free-living bacteria with large disturbance 
+% absence reproduction
+Mean_Bo15 = sum(Bo15,1)/n;
+Mean_Bo60 = sum(Bo60,1)/n;
+% reduction reproduction
+Mean_Bo15h = sum(Bo15h,1)/n;
+Mean_Bo60h = sum(Bo60h,1)/n;
+
+% Plot solution 
+figure(5)      
+subplot(2,2,2)   % reduction of 50% reproduction   
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo15h,'b--',tt,Mean_Bo60h,'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean Free-living bacterial density'); 
+%title({['Large disturbance at time = ',num2str(t1),' for vector ',mat2str(i2)]})
+legend('without','15 days','60 days'); 
+
+subplot(2,2,4)   % reduction of 100% reproduction
+plot(tt,Mean_Bo1,'g',tt,Mean_Bo15,'b--',tt,Mean_Bo60,'r--','LineWidth',2); grid on;
+xlabel('Time (days)'); xlim([0 T]); %ylabel('Mean Free-living bacterial density');
+%title({['Large disturbance at time = ',num2str(t1),' for vector ',mat2str(i2)]})
+legend('without','15 days','60 days'); 
+
+
+ %% Curve for species
+% figure(6)   
+% 
+% subplot(3,3,1)             % biomasses in patch 1
+% plot(tt,N1(1,:),'b',tt,R1(1,:),'r',tt,P1(1,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,2)             % biomasses patch 2
+% plot(tt,N1(2,:),'b',tt,R1(2,:),'r',tt,P1(2,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,3)             % biomasses patch 3
+% plot(tt,N1(3,:),'b',tt,R1(3,:),'r',tt,P1(3,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,4)             % biomasses patch 4
+% plot(tt,N1(4,:),'b',tt,R1(4,:),'r',tt,P1(4,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,5)             % biomasses patch 5
+% plot(tt,N1(5,:),'b',tt,R1(5,:),'r',tt,P1(5,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,6)             % biomasses patch 6
+% plot(tt,N1(6,:),'b',tt,R1(6,:),'r',tt,P1(6,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,7)             % biomasses patch 7
+% plot(tt,N1(7,:),'b',tt,R1(7,:),'r',tt,P1(7,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,8)             % biomasses patch 8
+% plot(tt,N1(8,:),'b',tt,R1(8,:),'r',tt,P1(8,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% subplot(3,3,9)             % biomasses patch 9
+% plot(tt,N1(9,:),'b',tt,R1(9,:),'r',tt,P1(9,:),'g','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Species populations');
+% legend('prey','micro-predator','macro-predator');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% 
+% 
+% %% Curves for bacteria 
+% figure(7)    
+% 
+% subplot(3,3,1)                      % bacteria patch 1
+% plot(tt,Bo1(1,:),'m',tt,BN1(1,:),'b--',tt,BR1(1,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,2)                       % bacteria patch 2
+% plot(tt,Bo1(2,:),'m',tt,BN1(2,:),'b--',tt,BR1(2,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,3)                       % bacteria patch 3
+% plot(tt,Bo1(3,:),'m',tt,BN1(3,:),'b--',tt,BR1(3,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,4)                      % bacteria patch 4
+% plot(tt,Bo1(4,:),'m',tt,BN1(4,:),'b--',tt,BR1(4,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,5)                       % bacteria patch 5
+% plot(tt,Bo1(5,:),'m',tt,BN1(5,:),'b--',tt,BR1(5,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,6)                       % bacteria patch 6
+% plot(tt,Bo1(6,:),'m',tt,BN1(6,:),'b--',tt,BR1(6,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,7)                      % bacteria pacth 7
+% plot(tt,Bo1(7,:),'m',tt,BN1(7,:),'b--',tt,BR1(7,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,8)                       % bacteria patch 8
+% plot(tt,Bo1(8,:),'m',tt,BN1(8,:),'b--',tt,BR1(8,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
+% subplot(3,3,9)                       % bacteria patch 9
+% plot(tt,Bo1(9,:),'m',tt,BN1(9,:),'b--',tt,BR1(9,:),'r--','LineWidth',2); grid on;
+% xlabel('Time'); ylabel('Bacterial density');
+% title({['\alpha1 = ',num2str(alpha1),'   \alpha2 = ',num2str(alpha2),'   \beta = ',num2str(beta)]})
+% legend('free-living','bacilli on prey','bacilli on micro');
+% 
