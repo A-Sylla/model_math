@@ -5,14 +5,14 @@ clf
 global dt alpha1 alpha2 beta mu e1 e2 b c1 c2 c3 d1 d2 theta eta zeta sN lambda1 lambda2 nu1 nu2 gamma rho s1 s2 Lambda delta kappa sigma1 sigma2 
 
 % Model parameters
-T = 360;           % period of 360 days
-dt = 1;        % time interval of 6 hours (1/4 of a day)
+T = 360;         % period of 360 days
+dt = 1;          % time interval of 6 hours (1/4 of a day)
 time = 0:dt:T;   % Generate discretization points in time  %% time have (nlength(time)+1) points
-n = 9;             % number of habitat patches
-K = ones(n,1);    % [1,0.9,0.8,0.7,0.7,1,0.5,0.3,0.3];         % carrying capacity
-alpha1=0.4;       % predation rate of micro predator to prey
-alpha2=0.0;       % predation rate of macro predator to prey
-beta=0.5;          % predation rates of macro predator to micro
+n = 9;           % number of habitat patches
+K = ones(n,1);   % carrying capacity
+alpha1=0.4;      % predation rate of micro predator to prey
+alpha2=0.0;      % predation rate of macro predator to prey
+beta=0.5;        % predation rates of macro predator to micro
 e1=0.1; e2=0.1; b=1;      % beddington
 c1=0.7;        % conversion rate of micro predator from prey
 c2=0.7;        % conversion rate of macro predator from prey
