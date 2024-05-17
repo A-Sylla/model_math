@@ -22,7 +22,7 @@ function [N,R,P,BN,BR,BP,Bo] = Specialist_model(time,No,n,r,K,u,v,wo,W,Q)
     BP(:,1) = No(6)*ones(n,1);  
     Bo(:,1) = No(7)*ones(n,1);
     
-    % Initialize generalist macro-predator and micro-predator dispersal rates (time t=1)
+    % Initialize specialist macro-predator and micro-predator dispersal rates (time t=1)
     m = zeros(n,length(time));  z = zeros(n,length(time));   
         m(:,1) = u./(1+R(:,1));      % for macro-predators
         z(:,1) = v./(1+N(:,1));      % for micro-predators
