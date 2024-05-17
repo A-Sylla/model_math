@@ -1,57 +1,65 @@
 
-function [N,R,P,BN,BR,BP,Bo] = Generalist_model(No,n,r,K,T,u,v,wo,W,Q)
+function [N,R,P,BN,BR,BP,Bo] = Generalist_model(time,No,n,r,K,u,v,wo,W,Q)
     
     global dt alpha1 alpha2 beta mu e1 e2 b c1 c2 c3 d1 d2 theta eta zeta sN lambda1 lambda2 nu1 nu2 gamma rho s1 s2 Lambda delta kappa sigma1 sigma2 
    
-    % initialize variables
-    N = zeros(n,T/dt);   R = zeros(n,T/dt);    P = zeros(n,T/dt);
-    BN = zeros(n,T/dt);  BR = zeros(n,T/dt);   BP = zeros(n,T/dt);   Bo = zeros(n,T/dt);
+    % Initialize variables
+    N = zeros(n,length(time)); 
+    R = zeros(n,length(time)); 
+    P = zeros(n,length(time));
+    BN = zeros(n,length(time)); 
+    BR = zeros(n,length(time)); 
+    BP = zeros(n,length(time)); 
+    Bo = zeros(n,length(time));
     
-    % initial data values
-    N(:,1)=No(1)*ones(n,1);   R(:,1)=No(2)*ones(n,1);   P(:,1)=No(3)*ones(n,1); 
-    BN(:,1)=No(4)*ones(n,1);  BR(:,1)=No(5)*ones(n,1);  BP(:,1)=No(6)*ones(n,1);  Bo(:,1)=No(7)*ones(n,1);
+    % Initial data values
+    N(:,1) = No(1)*ones(n,1);   
+    R(:,1) = No(2)*ones(n,1);   
+    P(:,1) = No(3)*ones(n,1); 
+    BN(:,1) = No(4)*ones(n,1);  
+    BR(:,1) = No(5)*ones(n,1);  
+    BP(:,1) = No(6)*ones(n,1);  
+    Bo(:,1) = No(7)*ones(n,1);
     
-    % Generalist macro-predator and micro-predator dispersal rates at time t=1
-    m=zeros(n,T/dt);  z=zeros(n,T/dt);   
-    for i=1:n 
-        m(i,1)= u/(1+R(i,1)+N(i,1));   % macro
-        z(i,1)= v/(1+N(i,1));          % micro
-    end     
-    % Immigration predators a time t=1
-    I=zeros(n,T/dt);   J=zeros(n,T/dt);   Y=zeros(n,T/dt);  
-    for i=1:n
-        I(i,1)= ( m(:,1)'*P(:,1)-m(i,1)*P(i,1) )/(n-1) ;     % macro
-        J(i,1)= ( z(:,1)'*R(:,1)-z(i,1)*R(i,1) )/(n-1) ;     % micro
-        Y(i,1)= ( wo*sum(N(:,1))-wo*N(i,1) )/(n-1) ;           % prey
-    end    
-    % Immigration predator-associated bacteria at time t=1
-    E=zeros(n,T/dt);   F=zeros(n,T/dt);   G=zeros(n,T/dt);
-    for i=1:n
-        E(i,1)= ( m(:,1)'*BP(:,1)-m(i,1)*BP(i,1) )/(n-1) ;    % macro
-        F(i,1)= ( z(:,1)'*BR(:,1)-z(i,1)*BR(i,1) )/(n-1) ;    % micro
-        G(i,1)= ( wo*sum(BN(:,1))-wo*BN(i,1) )/(n-1) ;          % prey
-    end
+    % Initialize generalist macro-predator and micro-predator dispersal rates (time t=1)
+    m = zeros(n,length(time));  z = zeros(n,length(time));   
+    m(:,1) = u./(1+R(:,1)+N(:,1));      % for macro-predators
+    z(:,1) = v./(1+N(:,1));             % for micro-predators
+
+    % Initialize immigration predators (time t=1)
+    I = zeros(n,length(time));   J = zeros(n,length(time));   Y = zeros(n,length(time));  
+    I(:,1) = ( m(:,1)'*P(:,1)-m(:,1).*P(:,1) )/(n-1) ;     % for macro-predtors
+    J(:,1) = ( z(:,1)'*R(:,1)-z(:,1).*R(:,1) )/(n-1) ;     % for micro-predtaors
+    Y(:,1) = ( wo*sum(N(:,1))-wo*N(:,1) )/(n-1) ;         % for prey
+
+    % Initialize immigration predator-associated bacteria (time t=1)
+    E = zeros(n,length(time));   F = zeros(n,length(time));   G = zeros(n,length(time));
+    E(:,1) = ( m(:,1)'*BP(:,1)-m(:,1).*BP(:,1) )/(n-1) ;    % on macro
+    F(:,1) = ( z(:,1)'*BR(:,1)-z(:,1).*BR(:,1) )/(n-1) ;    % on micro
+    G(:,1) = ( wo*sum(BN(:,1))-wo*BN(:,1) )/(n-1) ;        % on prey
     
     
     % Equations of the model for each patch 
-    for tt = 1:(T/dt)-1        
+    for t = 1:length(time)-1       
         for i = 1:n   
         % tri biomasses    
-        N(i,tt+1)=( N(i,tt) + dt*(r(i,tt)*N(i,tt)*(1-N(i,tt)/K(i))+Y(i,tt)) )/( 1+dt*(mu+wo+(alpha1*R(i,tt)+alpha2*P(i,tt))/(1+e1*R(i,tt)+e2*P(i,tt)+b*N(i,tt))) );
-        R(i,tt+1)=( (1-W(i,tt))*R(i,tt) + dt*(c1*alpha1*R(i,tt)*N(i,tt)/(1+e1*R(i,tt)+e2*P(i,tt)+b*N(i,tt))+J(i,tt)) )/( 1+dt*(d1+beta*P(i,tt)/(1+e2*P(i,tt)+b*R(i,tt))+z(i,tt)) );
-        P(i,tt+1)=( (1-Q(i,tt))*P(i,tt) + dt*(c2*alpha2*P(i,tt)*N(i,tt)/(1+e1*R(i,tt)+e2*P(i,tt)+b*N(i,tt))+c3*beta*P(i,tt)*R(i,tt)/(1+e2*P(i,tt)+b*R(i,tt))+I(i,tt)) )/( 1+dt*(d2+m(i,tt)) );
+        N(i,t+1)=( N(i,t) + dt*(r(i,t)*N(i,t)*(1-N(i,t)/K(i))+Y(i,t)) )/( 1+dt*(mu+wo+(alpha1*R(i,t)+alpha2*P(i,t))/(1+e1*R(i,t)+e2*P(i,t)+b*N(i,t))) );
+        R(i,t+1)=( (1-W(i,t))*R(i,t) + dt*(c1*alpha1*R(i,t)*N(i,t)/(1+e1*R(i,t)+e2*P(i,t)+b*N(i,t))+J(i,t)) )/( 1+dt*(d1+beta*P(i,t)/(1+e2*P(i,t)+b*R(i,t))+z(i,t)) );
+        P(i,t+1)=( (1-Q(i,t))*P(i,t) + dt*(c2*alpha2*P(i,t)*N(i,t)/(1+e1*R(i,t)+e2*P(i,t)+b*N(i,t))+c3*beta*P(i,t)*R(i,t)/(1+e2*P(i,t)+b*R(i,t))+I(i,t)) )/( 1+dt*(d2+m(i,t)) );
         
         % bacteria on biomasses
-        BN(i,tt+1)=( BN(i,tt) + dt*(theta*N(i,tt)*BN(i,tt)/(sN+N(i,tt))+zeta*N(i,tt)*Bo(i,tt)/(sN+N(i,tt))+G(i,tt)) )/( 1+dt*(eta+mu+wo+(alpha1*R(i,tt)+alpha2*P(i,tt))/(1+e1*R(i,tt)+e2*P(i,tt)+b*BN(i,tt))) );
-        BR(i,tt+1)=( (1-W(i,tt))*BR(i,tt) + dt*(lambda1*R(i,tt)*BR(i,tt)/(s1+R(i,tt))+gamma*R(i,tt)*Bo(i,tt)/(s1+R(i,tt))+alpha1*R(i,tt)*BN(i,tt)/(1+e1*R(i,tt)+e2*P(i,tt)+b*BN(i,tt))+F(i,tt)) )/( 1+dt*(nu1+d1+z(i,tt)+beta*P(i,tt)/(1+e2*P(i,tt)+b*BR(i,tt))) );
-        BP(i,tt+1)=( (1-Q(i,tt))*BP(i,tt) + dt*(lambda2*P(i,tt)*BP(i,tt)/(s2+P(i,tt))+rho*P(i,tt)*Bo(i,tt)/(s2+P(i,tt))+alpha2*P(i,tt)*BN(i,tt)/(1+e1*R(i,tt)+e2*P(i,tt)+b*BN(i,tt))+beta*P(i,tt)*BR(i,tt)/(1+e2*P(i,tt)+b*BR(i,tt))+E(i,tt)) )/( 1+dt*(nu2+d2+m(i,tt)) );
+        BN(i,t+1)=( BN(i,t) + dt*(theta*N(i,t)*BN(i,t)/(sN+N(i,t))+zeta*N(i,t)*Bo(i,t)/(sN+N(i,t))+G(i,t)) )/( 1+dt*(eta+mu+wo+(alpha1*R(i,t)+alpha2*P(i,t))/(1+e1*R(i,t)+e2*P(i,t)+b*BN(i,t))) );
+        BR(i,t+1)=( (1-W(i,t))*BR(i,t) + dt*(lambda1*R(i,t)*BR(i,t)/(s1+R(i,t))+gamma*R(i,t)*Bo(i,t)/(s1+R(i,t))+alpha1*R(i,t)*BN(i,t)/(1+e1*R(i,t)+e2*P(i,t)+b*BN(i,t))+F(i,t)) )/( 1+dt*(nu1+d1+z(i,t)+beta*P(i,t)/(1+e2*P(i,t)+b*BR(i,t))) );
+        BP(i,t+1)=( (1-Q(i,t))*BP(i,t) + dt*(lambda2*P(i,t)*BP(i,t)/(s2+P(i,t))+rho*P(i,t)*Bo(i,t)/(s2+P(i,t))+alpha2*P(i,t)*BN(i,t)/(1+e1*R(i,t)+e2*P(i,t)+b*BN(i,t))+beta*P(i,t)*BR(i,t)/(1+e2*P(i,t)+b*BR(i,t))+E(i,t)) )/( 1+dt*(nu2+d2+m(i,t)) );
         
         % free-living bacteria 
-        Bo(i,tt+1)=( Bo(i,tt) + dt*(Lambda(tt)*Bo(i,tt)+kappa*mu*BN(i,tt)+sigma1*(d1+W(i,tt))*BR(i,tt)+sigma2*(d2+Q(i,tt))*BP(i,tt)) )/( 1+dt*(delta+zeta*N(i,tt)/(sN+N(i,tt))+rho*P(i,tt)/(s2+P(i,tt))+gamma*R(i,tt)/(s1+R(i,tt))) );
+        Bo(i,t+1)=( Bo(i,t) + dt*(Lambda(t)*Bo(i,t)+kappa*mu*BN(i,t)+sigma1*(d1+W(i,t))*BR(i,t)+sigma2*(d2+Q(i,t))*BP(i,t)) )/( 1+dt*(delta+zeta*N(i,t)/(sN+N(i,t))+rho*P(i,t)/(s2+P(i,t))+gamma*R(i,t)/(s1+R(i,t))) );
+       
+ 
+        % Update dispersal rates for next time step
+        m(i,t+1)= u/(1+R(i,t+1)+N(i,t+1));   I(i,t+1)= ( m(:,t+1)'*P(:,t+1)-m(i,t+1)*P(i,t+1) )/(n-1) ;    E(i,t+1)= ( m(:,t+1)'*BP(:,t+1)-m(i,t+1)*BP(i,t+1) )/(n-1) ; 
+        z(i,t+1)= v/(1+N(i,t+1));            J(i,t+1)= ( z(:,t+1)'*R(:,t+1)-z(i,t+1)*R(i,t+1) )/(n-1) ;    F(i,t+1)= ( z(:,t+1)'*BR(:,t+1)-z(i,t+1)*BR(i,t+1) )/(n-1) ; 
+                                             Y(i,t+1)= ( wo*sum(N(:,t+1))-wo*N(i,t+1) )/(n-1);             G(i,t+1)= ( wo*sum(BN(:,t+1))-wo*BN(i,t+1) )/(n-1) ;                              
         end
-        
-        m(i,tt+1)= u/(1+R(i,tt+1)+N(i,tt+1));  I(i,tt+1)= ( m(:,tt+1)'*P(:,tt+1)-m(i,tt+1)*P(i,tt+1) )/(n-1) ;  E(i,tt+1)= ( m(:,tt+1)'*BP(:,tt+1)-m(i,tt+1)*BP(i,tt+1) )/(n-1) ; 
-        z(i,tt+1)= v/(1+N(i,tt+1));            J(i,tt+1)= ( z(:,tt+1)'*R(:,tt+1)-z(i,tt+1)*R(i,tt+1) )/(n-1) ;  F(i,tt+1)= ( z(:,tt+1)'*BR(:,tt+1)-z(i,tt+1)*BR(i,tt+1) )/(n-1) ; 
-                                               Y(i,tt+1)= ( wo*sum(N(:,tt+1))-wo*N(i,tt+1) )/(n-1);               G(i,tt+1)= ( wo*sum(BN(:,tt+1))-wo*BN(i,tt+1) )/(n-1) ; 
     end
 end
